@@ -1,4 +1,5 @@
 #include <iostream>
+#include <cmath>
 #include <stack>
 #include <string>
 
@@ -8,14 +9,29 @@ bool IsValid(string);
 string In2Pos(string);
 bool isnumber(char);
 int precede(char);
-int Evaluate();
+float Evaluate(string,float,float,float);
 
 int main()
 {
+	int a,b,c;
 	string formula;
+	string post_expresion;
+	cout<<"变量初始化：\na=";
+	cin>>a;
+	cout<<"b=";
+	cin>>b;
+	cout<<"c=";
+	cin>>c;
+	
+	cout<<"输入表达式：\n"; 
 	cin>>formula;
 	if(IsValid(formula))
-	cout<<"Yes"<<endl;
+	{
+		cout<<"Yes"<<endl;
+		post_expresion = In2Pos(formula);
+		cout<<post_expresion<<endl;
+		cout<<Evaluate(post_expresion,a,b,c)<<endl;
+	}
 	else
 	cout<<"No"<<endl;
 	
@@ -24,7 +40,7 @@ int main()
 
 bool IsValid(string formula)
 /*
-Pre:输入函数为标准的中缀表达式，没有单目运算符，如++，-2之类的，否则检测结果不准确。 
+Pre:输入函数为标准的中缀表达式，只有整数,没有单目运算符，如++，-2之类的，否则检测结果不准确。 
 */
 {
 	stack<char> brackets;//left:+1,right:-1
@@ -62,21 +78,7 @@ Pre:输入函数为标准的中缀表达式，没有单目运算符，如++，-2之类的，否则检测结果不准
 		{
 			//cout<<"D"<<endl;
 			if(flag) return false;//If it is number right before
-			
 			flag = true;
-			bool dot = false;//decimal?
-			while(i+1<length)
-			{
-				if(formula[i+1]=='.')
-					if(dot)
-					return false;
-					else
-					dot = true;
-				else if(!(formula[i+1]>47&&formula[i+1]<58))
-				break;
-				
-				i++;
-			}
 		}
 		else if(formula[i]>96&&formula[i]<(96+1+3))
 		{
@@ -120,10 +122,9 @@ Pre:输入函数为标准的中缀表达式，没有单目运算符，如++，-2之类的，否则检测结果不准
 string In2Pos(string formula)
 {
 	char fore;
-	string first,second;
+	string first,second,result;
 	stack<string> num;
 	stack<char> ope;
-	stack<char> mid;
 	int length = formula.size();
 	char temp;
 	for(int i=0;i<length;i++)
@@ -131,30 +132,22 @@ string In2Pos(string formula)
 		temp = formula[i];
 		if(isnumber(temp))
 		{
-			string dec = temp+"";
-			while(i+1<length)
-			{
-				if(isnumber(formula[i+1]))
-					dec = dec+formula[i+1];
-				else
-					break;
-				i++;
-			}
-			num.push(dec);
+			string integar = "\0";
+			integar = integar+temp;
+			num.push(integar);
 		}
-		else
+		else //operator
 		{
-			int level = precede(temp);
-			if(level==7)
+			if(ope.empty())
 			{
-				
+				ope.push(temp);
+				continue;
 			}
-			else if(level==6||level==5)
-			ope.push(temp);
-			else if(level>0)
+			int level = precede(temp);
+			if(level==-2)
 			{
 				fore = ope.top();
-				while(precede(fore)>level)
+				while(precede(fore)!=-1)
 				{
 					ope.pop();
 					second = num.top();
@@ -163,28 +156,67 @@ string In2Pos(string formula)
 					num.pop();
 					first = first+second+fore;
 					num.push(first);
+					fore = ope.top();
 				}
+				ope.pop();
+			}
+			else if(level==-1||level==5)
+			ope.push(temp);
+			else if(level>=0)
+			{
+				fore = ope.top();
+				while(precede(fore)>=level)
+				{
+					ope.pop();
+					second = num.top();
+					num.pop();
+					first = num.top();
+					num.pop();
+					first = first+second+fore;
+					num.push(first);
+					
+					if(!ope.empty())
+					fore = ope.top();
+					else
+					break;
+				}
+				ope.push(temp);
 			}
 		}
 	}
+	while(!ope.empty())
+	{
+		fore = ope.top();
+		ope.pop();
+		second = num.top();
+		num.pop();
+		first = num.top();
+		num.pop();
+		first = first+second+fore;
+		num.push(first);
+	}
+	result = num.top();
+	return result;
 }
+
 bool isnumber(char temp)
 {
-	if((temp>47&&temp<58)||temp=='.')
+	if((temp>47&&temp<58)||(temp>96&&temp<(96+1+3)))
 	return true;
 	else
 	return false;
 }
+
 int precede(char temp)
 {
 	int l;
 	switch(temp){
 		case ')':
 		case ']':
-		case '}':l=7;break;
+		case '}':l=-2;break;
 		case '(':
 		case '[':
-		case '{':l=6;break;
+		case '{':l=-1;break;
 		
 		case '^':l=5;break;
 		case '*':
@@ -192,11 +224,55 @@ int precede(char temp)
 		case '%':l=4;break;
 		case '+':
 		case '-':l=3;break;
-		case '&':
-		case '|':l=2;break;
-		case '=':
 		case '<':
-		case '>':l=1;break;
+		case '>':l=2;break;
+		case '&':
+		case '|':l=1;break;
+		case '=':l=0;break; 
 	}
 	return l;
+}
+
+float Evaluate(string post_expresion,float a,float b,float c)
+{
+	stack<float> num;
+	float x1,x2;
+	int length = post_expresion.size();
+	char temp;
+	for(int i=0;i<length;i++)
+	{
+		temp = post_expresion[i];
+		if(isnumber(temp))
+		{
+			switch(temp){
+				case 'a':num.push(a);break;
+				case 'b':num.push(b);break;
+				case 'c':num.push(c);break;
+				default: num.push(float(temp-48));
+			}
+		}
+		else
+		{
+			x2 = num.top();
+			num.pop();
+			x1 = num.top();
+			num.pop();
+			//cout<<x1<<' '<<x2<<endl;
+			switch(temp){
+				case '^':x1=pow(x1,x2);break;
+				case '*':x1=x1*x2;break;
+				case '/':x1=x1/x2;break;
+				case '%':x1=float(int(x1)%int(x2));break;
+				case '+':x1=x1+x2;break;
+				case '-':x1=x1-x2;break;
+				case '<':x1=x1<x2;break;
+				case '>':x1=x1>x2;break;
+				case '&':x1=x1&&x2;break;
+				case '|':x1=x1||x2;break;
+				case '=':x1=x1==x2;break;
+			}
+			num.push(x1);
+		}
+	}
+	return num.top();
 }
